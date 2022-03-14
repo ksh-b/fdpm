@@ -1,8 +1,8 @@
 import os
 import subprocess
 
-from package import Package
-from util import command, adb_connected
+from models.package import Package
+from helpers.util import command, adb_connected
 
 
 def installed_packages(installer_keyword, user=0) -> list:
@@ -35,9 +35,3 @@ def package_installed(package) -> bool:
 # return if user is using android
 def android() -> bool:
     return "android" in str(os.environ).lower()
-
-#
-# p = Package("q", "w", "e")
-# p.id = "de.marmaro.krt.ffupdater"
-# # print(package_installed(p))
-# print(installed_packages('fdroid'))

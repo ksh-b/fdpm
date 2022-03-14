@@ -1,6 +1,6 @@
 from fdroid import *
 from user import *
-from util import *
+from helpers.util import *
 
 
 def download(package: Package, code: int = 0) -> None:
@@ -104,7 +104,7 @@ def search_install(query: str) -> bool:
         return install(results[0])
 
 
-def install(package:Package, code:int=0, user:int=0) -> bool:
+def install(package: Package, code: int = 0, user: int = 0) -> bool:
     """
     Install package
 
@@ -122,7 +122,7 @@ def install(package:Package, code:int=0, user:int=0) -> bool:
         expected_pkg_id = f"--pkg {package.id_}"
         install_reason = "--install-reason 4"
         user = f"--user {user}"
-        installer = "-i org.fdroid.fdroid"
+        installer = "-i kshib.fdroid.cli"
         params = f"{expected_pkg_id} {install_reason} {user} {installer}"
         try:
             output = command(f"adb install {params} {file_name}")

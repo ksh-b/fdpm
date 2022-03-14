@@ -3,7 +3,7 @@ from urllib.parse import quote_plus as encode
 import requests
 from bs4 import BeautifulSoup as bs
 
-from package import Package
+from models.package import Package
 
 
 def search(query: str) -> list[Package]:
