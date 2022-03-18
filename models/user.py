@@ -26,7 +26,7 @@ def installed_packages(installer_keyword, user=0) -> list:
 
 
 def package_installed(package) -> bool:
-    for installed_package in installed_packages('fdroid'):
+    for installed_package in installed_packages('fdroid.cli'):
         if package.id_ == installed_package.id_:
             return True
     return False
