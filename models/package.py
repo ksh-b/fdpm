@@ -4,6 +4,8 @@ class Package:
     def __init__(self, name=None, description=None, id_=None, url: str = None, installer=None):
         self.version = -1
         self.name = name
+        if self.name is None and id_ is not None:
+            self.name = id_.split(".")[-1].capitalize()
         self.description = description
         self.url = url
         if url is not None:
@@ -20,3 +22,4 @@ class Package:
             "url": self.url,
             "installer": self.installer
         })
+
