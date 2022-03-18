@@ -17,16 +17,19 @@ def search(query: str) -> list[Package]:
     """
     packages = []
     query = encode(query, safe='')
-    response = requests.get(f"https://search.f-droid.org/?q={query}").content
-    soup = bs(response, 'html.parser')
-    results = soup.find_all(class_="package-header")
-    for result in results:
-        packages.append(Package(
-            name=result.find(class_="package-name").text.strip(),
-            description=result.find(class_="package-summary").text.strip(),
-            url=result.get('href')
-        ))
-    return packages
+    response = requests.get(f"https://search.f-droid.org/?q={query}")
+    if response.status_code == 200:
+        soup = bs(response.content, 'html.parser')
+        results = soup.find_all(class_="package-header")
+        for result in results:
+            packages.append(Package(
+                name=result.find(class_="package-name").text.strip(),
+                description=result.find(class_="package-summary").text.strip(),
+                url=result.get('href')
+            ))
+        return packages
+    else:
+        return []
 
 
 def versions(package: Package) -> list:
@@ -38,7 +41,11 @@ def versions(package: Package) -> list:
         Returns:
                 packages (list): List of suggested and latest versions for the given package
     """
-    return requests.get(f"https://f-droid.org/api/v1/packages/{package.id_}").json()["packages"]
+    response = requests.get(f"https://f-droid.org/api/v1/packages/{package.id_}")
+    if response.status_code == 200:
+        return response.json()["packages"]
+    else:
+        return []
 
 
 def latest_version(package: Package) -> int:
@@ -50,7 +57,11 @@ def latest_version(package: Package) -> int:
         Returns:
                 str : Returns latest version Code
     """
-    return versions(package)[0]["versionCode"]
+    versions_ = versions(package)
+    if versions_:
+        return versions_[0]["versionCode"]
+    else:
+        return 0
 
 
 def suggested_version(package: Package) -> int:
@@ -62,7 +73,11 @@ def suggested_version(package: Package) -> int:
         Returns:
                 str : Returns suggested version code
     """
-    return requests.get(f"https://f-droid.org/api/v1/packages/{package.id_}").json()["suggestedVersionCode"]
+    response = requests.get(f"https://f-droid.org/api/v1/packages/{package.id_}")
+    if response.status_code == 200:
+        return response.json()["suggestedVersionCode"]
+    else:
+        return 0
 
 
 def version_code(package: Package, version_name: str) -> int:
@@ -74,9 +89,13 @@ def version_code(package: Package, version_name: str) -> int:
         Returns:
                 int : Returns version Code
     """
-    for version in versions(package):
-        if version_name == version["versionName"]:
-            return version["versionCode"]
+    versions_ = versions(package)
+    if versions_:
+        for version in versions_:
+            if version_name == version["versionName"]:
+                return version["versionCode"]
+    else:
+        return 0
 
 
 # TODO
