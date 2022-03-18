@@ -3,7 +3,7 @@ import subprocess
 
 
 def adb_connected():
-    return subprocess.call("adb get-state", shell=True) == 0
+    return subprocess.call("adb get-state>/dev/null", shell=True) == 0
 
 
 def command(string: str):
