@@ -1,6 +1,11 @@
-from fdroid import *
-from user import *
-from helpers.util import *
+import subprocess
+
+import requests
+
+from helpers.util import download_dir, adb_connected, command
+from models.fdroid import suggested_version, latest_version, version_code, search
+from models.package import Package
+from models.user import installed_packages, package_installed
 
 
 def download(package: Package, code: int = 0) -> None:
@@ -47,7 +52,7 @@ def outdated_packages(suggested: bool = True) -> list[Package]:
     :return: Returns list of outdated packages
     """
     packages = []
-    for package in installed_packages('fdroid'):
+    for package in installed_packages('fdroid.cli'):
         if suggested and suggested_outdated(package):
             packages.append(package)
         if not suggested and latest_outdated(package):
@@ -114,16 +119,20 @@ def install(package: Package, code: int = 0, user: int = 0) -> bool:
     :return: True if install was successful
     """
     if code == 0:
-        code = latest_version(package)
+        code = suggested_version(package)
+    if code == -1:
+        return False
+    if package_installed(package):
+        return False
     dl_dir = download_dir()
     download(package, code)
     file_name = f"{dl_dir}/{package.id_}_{code}.apk"
     if adb_connected():
-        expected_pkg_id = f"--pkg {package.id_}"
+        pkg_id = f"--pkg {package.id_}"
         install_reason = "--install-reason 4"
         user = f"--user {user}"
         installer = "-i kshib.fdroid.cli"
-        params = f"{expected_pkg_id} {install_reason} {user} {installer}"
+        params = f"{pkg_id} {install_reason} {user} {installer}"
         try:
             output = command(f"adb install {params} {file_name}")
             return "Success" in output
