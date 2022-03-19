@@ -1,11 +1,16 @@
 import subprocess
+from multiprocessing.pool import ThreadPool
 
+import certifi
 import requests
+import urllib3
 
 from helpers.util import download_dir, adb_connected, command
 from models.fdroid import suggested_version, latest_version, version_code, search
 from models.package import Package
 from models.user import installed_packages, package_installed
+
+download_status = {}
 
 
 def download(package: Package, code: int = 0) -> None:
@@ -17,14 +22,36 @@ def download(package: Package, code: int = 0) -> None:
     :param code: Version code of the package to download
     :type code: int
     """
-
     if code == 0:
         code = suggested_version(package)
     file_name = f"{package.id_}_{code}.apk"
-    apk_url = f"https://f-droid.org/repo/{file_name}"
-    apk = requests.get(apk_url)
-    dl_dir = download_dir()
-    open(f'{dl_dir}/{file_name}', 'wb').write(apk.content)
+    url = f"https://f-droid.org/repo/{file_name}"
+
+    http = urllib3.PoolManager(
+        cert_reqs='CERT_REQUIRED',
+        ca_certs=certifi.where()
+    )
+    r = http.request('GET', url, preload_content=False)
+    file_size = int(r.headers["Content-Length"])
+    file_size_dl = 0
+    block_sz = 8192
+    download_status[file_name] = (file_size_dl, file_size)
+    f = open(f"{download_dir()}/{file_name}", "wb")
+    while True:
+        buffer = r.read(block_sz)
+        if not buffer:
+            break
+        file_size_dl += len(buffer)
+        f.write(buffer)
+        status = "{}".format(int(file_size_dl * 100. // file_size))
+        download_status[file_name] = (status, file_size)
+    f.close()
+
+
+def download_multiple(urls):
+    results = ThreadPool(3).imap_unordered(download, urls)
+    for r in results:
+        pass
 
 
 def suggested_outdated(package: Package) -> bool:
@@ -109,6 +136,42 @@ def search_install(query: str) -> bool:
         return install(results[0])
 
 
+def install_multiple(packages: list[Package], code: int = 0, user: int = 0) -> bool:
+    """
+    Install package
+
+    :param packages: Package
+    :param code: Version of package to install
+    :param user: User id. 0 by default (main user)
+    :return: True if install was successful
+    """
+    urls=[]
+    for package in packages:
+        if code == 0:
+            if code == -1:
+                return False
+        if package_installed(package):
+            return False
+        file_name = f"{package.id_}_{code}.apk"
+        url = f"https://f-droid.org/repo/{file_name}"
+        urls.append(url)
+    download_multiple(urls)
+    for package in packages:
+        if adb_connected():
+            file_name = f"{package.id_}_{code}.apk"
+            pkg_id = f"--pkg {package.id_}"
+            install_reason = "--install-reason 4"
+            user = f"--user {user}"
+            installer = "-i kshib.fdroid.cli"
+            params = f"{pkg_id} {install_reason} {user} {installer}"
+            try:
+                output = command(f"adb install {params} {file_name}")
+                return "Success" in output
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to check package version for '{package.name}'", e.output)
+        return False
+
+
 def install(package: Package, code: int = 0, user: int = 0) -> bool:
     """
     Install package
@@ -120,8 +183,8 @@ def install(package: Package, code: int = 0, user: int = 0) -> bool:
     """
     if code == 0:
         code = suggested_version(package)
-    if code == -1:
-        return False
+        if code == -1:
+            return False
     if package_installed(package):
         return False
     dl_dir = download_dir()
