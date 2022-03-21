@@ -1,32 +1,22 @@
+import os
 import subprocess
 from multiprocessing.pool import ThreadPool
 
 import certifi
-import requests
 import urllib3
+from tqdm import tqdm
 
-from helpers.util import download_dir, adb_connected, command
-from models.fdroid import suggested_version, latest_version, version_code, search
-from models.package import Package
-from models.user import installed_packages, package_installed
-
-download_status = {}
+from helpers.util import download_dir, adb_connected, command, verify_apk
+from models.fdroid import suggested_version, latest_version, version_code
+from models.user import installed_packages
 
 
-def download(package: Package, code: int = 0) -> None:
+def download(url: str) -> None:
     """
-    Download package to default download directory
-
-    :param package: Package
-    :type package: Package
-    :param code: Version code of the package to download
-    :type code: int
+    Download from given url
+    :param url: Url for apk
     """
-    if code == 0:
-        code = suggested_version(package)
-    file_name = f"{package.id_}_{code}.apk"
-    url = f"https://f-droid.org/repo/{file_name}"
-
+    file_name = f"{url.split('/')[-1]}"
     http = urllib3.PoolManager(
         cert_reqs='CERT_REQUIRED',
         ca_certs=certifi.where()
@@ -35,190 +25,185 @@ def download(package: Package, code: int = 0) -> None:
     file_size = int(r.headers["Content-Length"])
     file_size_dl = 0
     block_sz = 8192
-    download_status[file_name] = (file_size_dl, file_size)
-    f = open(f"{download_dir()}/{file_name}", "wb")
+    apk_path = f"{download_dir()}/{file_name}"
+    if os.path.exists(apk_path) and verify_apk(apk_path, file_size):
+        return
+    f = open(apk_path, "wb")
+    pbar = tqdm(total=file_size,
+                desc=url.split("/")[-1].split(".")[-1].capitalize(),
+                leave=False, colour='green')
     while True:
         buffer = r.read(block_sz)
         if not buffer:
             break
         file_size_dl += len(buffer)
         f.write(buffer)
-        status = "{}".format(int(file_size_dl * 100. // file_size))
-        download_status[file_name] = (status, file_size)
+        pbar.update(len(buffer))
+    pbar.close()
     f.close()
 
 
-def download_multiple(urls):
-    results = ThreadPool(3).imap_unordered(download, urls)
-    for r in results:
-        pass
-
-
-def suggested_outdated(package: Package) -> bool:
+def download_multiple(urls: list) -> None:
     """
-    :param package: Package
-    :type package: Package
-    :return: True if version for given package is lower than the suggested version
+    Download apk from given urls parallely
+    :param urls: List of url
     """
-    return installed_package_version(package) < suggested_version(package)
+    pbar = tqdm(total=len(urls), desc="Downloading apk", colour='blue')
+    results = ThreadPool(4).imap_unordered(download, urls)
+    for _ in results:
+        pbar.update(1)
+    pbar.close()
 
 
-def latest_outdated(package):
+def suggested_outdated(id_: str) -> int:
     """
-    :param package: Package
-    :type package: Package
-    :return: True if version for given package is lower than the latest version
+    Returns newer 'suggested' version if available, 0 otherwise
+    :param id_: Package name
+    :return: Newer 'suggested' version if available, 0 otherwise
     """
-    return installed_package_version(package) < latest_version(package)
+    version = suggested_version(id_)
+    if installed_package_version(id_) < version:
+        return version
+    else:
+        return 0
 
 
-def outdated_packages(suggested: bool = True) -> list[Package]:
+def latest_outdated(id_: str):
     """
-    :param suggested: Use suggested version? Latest otherwise
-    :type suggested: bool
-    :return: Returns list of outdated packages
+    Returns newer 'latest' version if available, 0 otherwise
+    :param id_: Package name
+    :return: Newer 'latest' version if available, 0 otherwise
     """
-    packages = []
-    for package in installed_packages('fdroid.cli'):
-        if suggested and suggested_outdated(package):
-            packages.append(package)
-        if not suggested and latest_outdated(package):
-            packages.append(package)
-    return packages
+    version = latest_version(id_)
+    if installed_package_version(id_) < latest_version(id_):
+        return version
+    return 0
 
 
-def update_outdated_packages(suggested=True) -> list[Package]:
+def outdated_packages(suggested: bool = True) -> list:
     """
-    Downloads and installs outdated packages
-
-    :param suggested: Use suggested version? Latest otherwise
-    :type suggested: bool
-    :return: List of packages failed to install
+    Returns list of outdated packages
+    :param suggested: Package versions. True=suggested, False=latest
+    :return: List of outdated packages
     """
     packages = []
-    for package in outdated_packages():
+    for package_id in installed_packages('fdroid.cli'):
         if suggested:
-            code = suggested_version(package)
-        else:
-            code = latest_version(package)
-        download(package, code)
-        success = install(package, code)
-        if not success:
-            packages.append(package)
+            new_version = suggested_outdated(package_id)
+            if new_version:
+                packages.append(f"https://f-droid.org/repo/{package_id}_{new_version}.apk")
+        if not suggested and latest_outdated(package_id):
+            new_version = latest_outdated(package_id)
+            if new_version:
+                packages.append(f"https://f-droid.org/repo/{package_id}_{new_version}.apk")
     return packages
 
 
-def installed_package_version(package: Package) -> int:
+def installed_package_version(id_: str) -> int:
     """
-    :param package: Package
-    :type package: Package
-    :return: Installed package version
+    Returns installed package version for package name
+    :param id_: Package name
+    :return: Installed package version if found, 0 otherwise
     """
     if adb_connected():
         try:
-            output = command(f"adb shell dumpsys package {package.id_} | grep versionName")
+            output = command(f"adb shell dumpsys package {id_} | grep versionName")
             version_name = output.strip("\n").split("=")[1]
-            return version_code(package, version_name)
+            return version_code(id_, version_name)
         except subprocess.CalledProcessError as e:
-            print(f"Failed to check package version for '{package.name}'", e.output)
-    return -1
+            print(f"Failed to check package version for '{id_}'", e.output)
+    return 0
 
 
-def search_install(query: str) -> bool:
+def apk_url(id_: str):
     """
-    Searches packages matching given query and installs first result
-    :param query: Search term
-    :type query: Package
-    :return: True if install was successful
+    Get apk url of suggested version for given package name
+    :param id_: List of package names
+    :return: list[str]:
     """
-    results = search(query)
-    if results:
-        return install(results[0])
+    code = suggested_version(id_)
+    file_name = f"{id_}_{code}.apk"
+    url = f"https://f-droid.org/repo/{file_name}"
+    return url
 
 
-def install_multiple(packages: list[Package], code: int = 0, user: int = 0) -> bool:
+def apk_urls(ids: list) -> list[str]:
     """
-    Install package
-
-    :param packages: Package
-    :param code: Version of package to install
-    :param user: User id. 0 by default (main user)
-    :return: True if install was successful
+    Get apk url of suggested version for given package names
+    :param ids: List of package names
+    :return: list[str]:
     """
-    urls=[]
-    for package in packages:
-        if code == 0:
-            if code == -1:
-                return False
-        if package_installed(package):
-            return False
-        file_name = f"{package.id_}_{code}.apk"
-        url = f"https://f-droid.org/repo/{file_name}"
-        urls.append(url)
-    download_multiple(urls)
-    for package in packages:
-        if adb_connected():
-            file_name = f"{package.id_}_{code}.apk"
-            pkg_id = f"--pkg {package.id_}"
-            install_reason = "--install-reason 4"
-            user = f"--user {user}"
-            installer = "-i kshib.fdroid.cli"
-            params = f"{pkg_id} {install_reason} {user} {installer}"
-            try:
-                output = command(f"adb install {params} {file_name}")
-                return "Success" in output
-            except subprocess.CalledProcessError as e:
-                print(f"Failed to check package version for '{package.name}'", e.output)
-        return False
+    __urls = []
+    pbar = tqdm(total=len(ids), desc="Getting url for apk", colour='blue')
+    results = ThreadPool(4).imap_unordered(apk_url, ids)
+    for r in results:
+        __urls.append(r)
+        pbar.update(1)
+    pbar.close()
+    return __urls
 
 
-def install(package: Package, code: int = 0, user: int = 0) -> bool:
+def install_all(ids: list) -> None:
     """
-    Install package
-
-    :param package: Package
-    :param code: Version of package to install
-    :param user: User id. 0 by default (main user)
-    :return: True if install was successful
+    Installs app with given url
+    :param ids: List of package names to install
+    :return:None
     """
-    if code == 0:
-        code = suggested_version(package)
-        if code == -1:
-            return False
-    if package_installed(package):
-        return False
-    dl_dir = download_dir()
-    download(package, code)
-    file_name = f"{dl_dir}/{package.id_}_{code}.apk"
+    package_urls = apk_urls(ids)
+    download_multiple(package_urls)
     if adb_connected():
-        pkg_id = f"--pkg {package.id_}"
-        install_reason = "--install-reason 4"
-        user = f"--user {user}"
-        installer = "-i kshib.fdroid.cli"
-        params = f"{pkg_id} {install_reason} {user} {installer}"
-        try:
-            output = command(f"adb install {params} {file_name}")
-            return "Success" in output
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to check package version for '{package.name}'", e.output)
-    return False
+        results = ThreadPool(4).imap_unordered(install, package_urls)
+        with tqdm(total=len(ids), desc=f"Installing apk", colour='blue') as pbar:
+            for _ in results:
+                pbar.update(1)
+        pbar.close()
 
 
-def uninstall(package: Package, user=0):
+def install(url: str) -> (str, bool):
     """
-    Uninstall package
+    Installs app with given url
+    :param url: APK file url
+    :return:(str, bool): package name, install status
+    """
+    file_name = url.split("/")[-1]
+    id_ = file_name.replace(".apk", "")
+    install_reason = "--install-reason 4"
+    user = f"--user 0"
+    installer = "-i kshib.fdroid.cli"
+    params = f"{install_reason} {user} {installer}"
+    try:
+        output = command(f"adb install {params} {download_dir()}/{file_name}")
+        return id_, "Success" in output
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install'{id_}'", e.output)
+        return id_, False
 
-    :param package: Package
-    :param user: User id. 0 by default (main user)
-    :return: True if install was successful
+
+def uninstall(id_: str) -> (str, bool):
+    """
+    Uninstalls app with given package name
+    :param id_: Package names of app to uninstall
+    :return:(str, bool): package name, uninstall status
+    """
+    user = f"--user 0"
+    params = f"{user} {id_}"
+    try:
+        output = command(f"adb uninstall {params}")
+        return id_, "Success" in output
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to uninstall' {id_}'", e.output)
+    return id_, False
+
+
+def uninstall_all(ids: list) -> None:
+    """
+    Uninstalls all apps in given package names list
+    :param ids: List of package names of apps to uninstall
+    :return:None
     """
     if adb_connected():
-        user = f"--user {user}"
-        id_ = f"{package.id_}"
-        params = f"{user} {id_}"
-        try:
-            output = command(f"adb uninstall {params}")
-            return "Success" in output
-        except subprocess.CalledProcessError as e:
-            print(f"Failed to uninstall'{package.name}'", e.output)
-    return False
+        pbar = tqdm(total=len(ids), desc="Uninstalling app", colour='blue')
+        results = ThreadPool(4).imap_unordered(uninstall, ids)
+        for _ in results:
+            pbar.update(1)
+        pbar.close()

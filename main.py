@@ -1,18 +1,19 @@
+import argparse
 import getopt
 import glob
 import os
 import sys
 
 from helpers.util import download_dir
+from models import user
 from models.fdroid import search
-from models.installer import install, uninstall, update_outdated_packages, outdated_packages
-from models.package import Package
+from models.installer import install_all, uninstall_all, outdated_packages
 from views.box import main_menu, dialog_clear
 
 options, remainder = getopt.getopt(
     sys.argv[1:],
-    'cdi:n:s:u',
-    ['clean','dialog', 'install=', 'uninstall=', 'search=', 'update']
+    'cdhi:ln:s:u',
+    ['clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'search=', 'update']
 )
 
 for opt, arg in options:
@@ -26,35 +27,35 @@ for opt, arg in options:
             print(package.description, "\n")
     elif opt in ('-i', '--install'):
         ids = (sys.argv[2:])
-        for id_ in ids:
-            app = Package(id_=id_)
-            if install(app):
-                print(f"Installed {id_}")
-            else:
-                print(f"Failed to install {id_}")
+        install_all(ids)
     elif opt in ('-n', '--uninstall'):
         ids = (sys.argv[2:])
-        for id_ in ids:
-            app = Package(id_=id_)
-            if uninstall(app):
-                print(f"Un-installed {id_}")
-            else:
-                print(f"Failed to un-install {id_}")
+        uninstall_all(ids)
     elif opt in ('-u', '--update'):
-        if sys.argv[2:]:
-            packages = outdated_packages()
-            for package in packages:
-                if install(package):
-                    print(f"Updated {package.id_}")
-                else:
-                    print(f"Failed to update {package.id_}")
-        else:
-            print(f"Downloading updates for {outdated_packages()}")
-            if update_outdated_packages():
-                print(f"Updated outdated packages")
-            else:
-                print(f"Failed to update packages")
+        install_all(outdated_packages())
     elif opt in ('-c', '--clean'):
         files = glob.glob(f"{download_dir()}/*.apk")
         for f in files:
             os.remove(f)
+    elif opt in ('-l', '--installed'):
+        print(
+            str(user.installed_packages('fdroid.cli'))
+            .replace(", ", "\n")
+            .replace("'", "")
+            .strip("[]")
+        )
+
+    else:
+        parser = argparse.ArgumentParser(description='fdroid-cli ~ Install packages from f-droid',
+                                         prog='python main.py')
+        parser.add_argument('-c', '--clean', required=False, help='Empty download directory', action="store_false")
+        parser.add_argument('-d', '--dialog', required=False, help='Use dialog interface', action="store_false")
+        parser.add_argument('-i', '--install', required=False, help='Install apps from package names', action="extend",
+                            nargs='+', type=list)
+        parser.add_argument('-l', '--installed', required=False, help='View installed apps', action="store_false")
+        parser.add_argument('-n', '--uninstall', required=False, help='Uninstall apps from package names',
+                            action="extend",
+                            nargs='+')
+        parser.add_argument('-s', '--search', required=False, help='Search for apps', action="store")
+        parser.add_argument('-u', '--update', required=False, help='Update outdated apps', action="store_false")
+        parser.parse_args()

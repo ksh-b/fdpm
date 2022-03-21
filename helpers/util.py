@@ -1,5 +1,6 @@
 import os
 import subprocess
+import zipfile
 
 
 def adb_connected():
@@ -20,3 +21,7 @@ def download_dir():
     if not os.path.exists(directory):
         os.makedirs(directory)
     return directory
+
+
+def verify_apk(path: str, size: int):
+    return os.stat(path).st_size == size and zipfile.is_zipfile(path)
