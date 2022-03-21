@@ -47,7 +47,7 @@ for opt, arg in options:
 
     else:
         parser = argparse.ArgumentParser(description='fdroid-cli ~ Install packages from f-droid',
-                                         prog='python main.py')
+                                         prog='python fdpm.py')
         parser.add_argument('-c', '--clean', required=False, help='Empty download directory', action="store_false")
         parser.add_argument('-d', '--dialog', required=False, help='Use dialog interface', action="store_false")
         parser.add_argument('-i', '--install', required=False, help='Install apps from package names', action="extend",
