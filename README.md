@@ -1,5 +1,6 @@
-# fdroid-cli
+# fdpm
 
+F-Droid Package Manager
 Install apps from f-droid through command line
 
 ## Requirements
@@ -15,7 +16,7 @@ Install apps from f-droid through command line
     - Install [adb binaries](https://github.com/ShiSheng233/Termux-ADB)
     - Go to `Developer options` -> `Wireless debugging` -> Note the `IP address & Port`
     - Open termux and enter `adb connect ip.add.re.ss:port` (Enter IP address & Port noted in previous step)
-  - Install [dummy installer apk](https://gitlab.com/kshib/fdroid-cli/-/blob/main/fdroid-cli.apk)
+  - Install [dummy installer apk](https://gitlab.com/kshib/fdpm/-/blob/main/fdroid-cli.apk)
     Or you could also build it yourself from [here](https://gitlab.com/kshib/fdpm-installer). Just keep the package name intact.
 - On desktop:
   - Download and extract [platform tools](https://developer.android.com/studio/releases/platform-tools#downloads)
@@ -25,7 +26,7 @@ Install apps from f-droid through command line
   
 ## Installation
 ```
-git clone https://gitlab.com/kshib/fdroid-cli
+git clone https://gitlab.com/kshib/fdpm
 cd fdroid-cli
 pip install -r requirements.txt
 ```
