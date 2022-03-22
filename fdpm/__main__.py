@@ -4,11 +4,11 @@ import glob
 import os
 import sys
 
-from .helpers.util import download_dir
-from .models import user
-from .models.fdroid import search
-from .models.installer import install_all, uninstall_all, outdated_packages
-from .views.box import main_menu, dialog_clear
+from helpers.util import download_dir
+from models import user
+from models.fdroid import search
+from models.installer import install_all, uninstall_all, outdated_packages
+from views.box import main_menu, dialog_clear
 
 
 def main():
@@ -23,10 +23,13 @@ def main():
             main_menu()
             dialog_clear()
         elif opt in ('-s', '--search'):
-            packages = search(arg)
+            search_term = str(sys.argv[2:]).strip("[]").replace("'", "").replace(",", "")
+            packages = search(search_term)
+            print(f"Searching for {search_term}...")
             for package in packages:
-                print(package.name, f"({package.id_})")
-                print(package.description, "\n")
+                package_info = packages[package]
+                print(f"{package_info[0][0]}, ({package_info[2].split('/')[-1]})")
+                print(f"  {package_info[1][0]}", "\n")
         elif opt in ('-i', '--install'):
             ids = (sys.argv[2:])
             install_all(ids)
