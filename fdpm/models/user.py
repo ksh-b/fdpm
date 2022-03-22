@@ -1,7 +1,7 @@
 import os
 import subprocess
 
-from helpers.util import command, adb_connected
+from fdpm.helpers.util import command, adb_connected
 
 
 def installed_packages(installer_keyword, user=0) -> list:

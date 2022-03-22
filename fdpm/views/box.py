@@ -1,10 +1,9 @@
 import os
-
 from dialog import Dialog
 
-from models import fdroid
-from models.installer import outdated_packages, install_all, uninstall_all
-from models.user import installed_packages
+from fdpm.models import fdroid
+from fdpm.models.installer import outdated_packages, install_all, uninstall_all
+from fdpm.models.user import installed_packages
 
 d = Dialog(dialog="dialog")
 

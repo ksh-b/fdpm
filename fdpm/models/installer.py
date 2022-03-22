@@ -6,9 +6,9 @@ import certifi
 import urllib3
 from tqdm import tqdm
 
-from helpers.util import download_dir, adb_connected, command, verify_apk
-from models.fdroid import suggested_version, latest_version, version_code
-from models.user import installed_packages
+from fdpm.helpers.util import download_dir, adb_connected, command, verify_apk
+from fdpm.models.fdroid import suggested_version, latest_version, version_code
+from fdpm.models.user import installed_packages
 
 
 def download(url: str) -> None:
