@@ -1,46 +1,11 @@
-import os
 import subprocess
 from multiprocessing.pool import ThreadPool
 
-import certifi
-import urllib3
 from tqdm import tqdm
 
-from fdpm.helpers.util import download_dir, adb_connected, command, verify_apk
+from fdpm.helpers.util import download_dir, adb_connected, command, download
 from fdpm.models.fdroid import suggested_version, latest_version, version_code
 from fdpm.models.user import installed_packages
-
-
-def download(url: str) -> None:
-    """
-    Download from given url
-    :param url: Url for apk
-    """
-    file_name = f"{url.split('/')[-1]}"
-    http = urllib3.PoolManager(
-        cert_reqs='CERT_REQUIRED',
-        ca_certs=certifi.where()
-    )
-    r = http.request('GET', url, preload_content=False)
-    file_size = int(r.headers["Content-Length"])
-    file_size_dl = 0
-    block_sz = 8192
-    apk_path = f"{download_dir()}/{file_name}"
-    if os.path.exists(apk_path) and verify_apk(apk_path, file_size):
-        return
-    f = open(apk_path, "wb")
-    pbar = tqdm(total=file_size,
-                desc=url.split("/")[-1].split(".")[-1].capitalize(),
-                leave=False, colour='green')
-    while True:
-        buffer = r.read(block_sz)
-        if not buffer:
-            break
-        file_size_dl += len(buffer)
-        f.write(buffer)
-        pbar.update(len(buffer))
-    pbar.close()
-    f.close()
 
 
 def download_multiple(urls: list) -> None:
