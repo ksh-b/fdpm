@@ -1,0 +1,29 @@
+[tool.poetry]
+name = "fdpm"
+version = "0.0.3"
+description = "Command line tool to install packages from f-droid.org"
+authors = ["Kshitij Bhuwad <ksyko@pm.me>"]
+license = "AGPL-3.0-only"
+readme = "README.md"
+homepage = "https://gitlab.com/kshib/fdpm"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+requests = "^2.27.1"
+beautifulsoup4 = "^4.10.0"
+pythondialog = "^3.5.3"
+tqdm = "^4.63.0"
+
+[tool.poetry.dev-dependencies]
+python = "^3.10"
+requests = "^2.27.1"
+beautifulsoup4 = "^4.10.0"
+pythondialog = "^3.5.3"
+tqdm = "^4.63.0"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry.scripts]
+fdpm = "fdpm.__main__:main"
