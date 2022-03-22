@@ -5,7 +5,6 @@ Install apps from f-droid through command line
 
 ## Requirements
 - adb
-- git
 - python
 
 ## Setup
@@ -26,27 +25,25 @@ Install apps from f-droid through command line
   
 ## Installation
 ```
-git clone https://gitlab.com/kshib/fdpm
-cd fdroid-cli
-pip install -r requirements.txt
+pip install fdpm
 ```
 
 ## Usage
 ````
 # Search apps
-python fdpm.py -s launcher
+fdpm -s launcher
 
 # Install apps
-python fdpm.py -i org.videolan.vlc ch.deletescape.lawnchair.plah
+fdpm -i org.videolan.vlc ch.deletescape.lawnchair.plah
 
 # Uninstall apps
-python fdpm.py -n org.videolan.vlc ch.deletescape.lawnchair.plah
+fdpm -n org.videolan.vlc ch.deletescape.lawnchair.plah
 
 # Update installed apps
-python fdpm.py -u
+fdpm -u
 
 # Use dialog interface to avoid using package names (Not supported on windows)
-python fdpm.py -d
+fdpm -d
 ````
 
 Screenshots:
