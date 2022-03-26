@@ -1,10 +1,9 @@
 import os
+
 from dialog import Dialog
-
-from fdpm.models import fdroid
-from fdpm.models.installer import outdated_packages, install_all, uninstall_all
-from fdpm.models.user import installed_packages
-
+from models import Repo
+from models import Installer
+from models import User
 d = Dialog(dialog="dialog")
 
 
@@ -18,7 +17,7 @@ def dialog_search(select_multiple=False):
         main_menu()
         return
     d.gauge_start(f"Searching for {value} on f-droid...", percent=0)
-    __packages = fdroid.search(value)
+    __packages = Repo().search(value)
     d.gauge_update(percent=100)
     d.gauge_stop()
     for __package in __packages:
@@ -51,13 +50,13 @@ def dialog_install():
         main_menu()
     else:
         dialog_clear()
-        install_all(__ids)
+        Installer().install_all(__ids)
 
 
 def dialog_uninstall():
     i = 0
     __ids = []
-    __packages = installed_packages('fdroid')
+    __packages = User().installed_packages('fdroid')
     if not __packages:
         dialog_say("No packages to uninstall")
         main_menu()
@@ -83,12 +82,12 @@ def dialog_uninstall():
         main_menu()
     else:
         dialog_clear()
-        uninstall_all(tags)
+        Installer().uninstall_all(tags)
 
 
 def dialog_update():
     d.gauge_start(f"Checking for outdated packages...", percent=0)
-    __packages = outdated_packages()
+    __packages = Installer().outdated_packages()
     d.gauge_update(100)
     d.gauge_stop()
     __choices = []
@@ -112,7 +111,7 @@ def dialog_update():
         main_menu()
     else:
         dialog_clear()
-        install_all(tags)
+        Installer().install_all(tags)
 
 
 def dialog_say(msg):

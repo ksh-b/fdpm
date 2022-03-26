@@ -27,18 +27,25 @@ def download_dir():
     return directory
 
 
+def share_dir():
+    if 'PREFIX' in os.environ:
+        if 'termux' in os.environ['PREFIX']:
+            return f"{os.environ['PREFIX']}/share/fdpm"
+    else:
+        return f"{os.environ['HOME']}/.local/share/fdpm"
+
+
 def verify_apk(path: str, size: int):
     return os.stat(path).st_size == size and zipfile.is_zipfile(path)
 
 
-def download(url: str, file_name: str = "") -> None:
+def download(url: str, file_path: str = "") -> None:
     """
     Download from given url
-    :param file_name:
+    :param file_path:
     :param url: Url for apk
     """
-    if not file_name:
-        file_name = f"{url.split('/')[-1]}"
+    file_name = f"{url.split('/')[-1]}"
     http = urllib3.PoolManager(
         cert_reqs='CERT_REQUIRED',
         ca_certs=certifi.where()
@@ -47,12 +54,15 @@ def download(url: str, file_name: str = "") -> None:
     file_size = int(r.headers["Content-Length"])
     file_size_dl = 0
     block_sz = 8192
-    file_path = f"{download_dir()}/{file_name}"
+    if not file_path:
+        file_path = f"{download_dir()}/{file_name}"
+    else:
+        file_path = f"{file_path}/{file_name}"
     if file_name.endswith(".apk"):
         if os.path.exists(file_path) and verify_apk(file_path, file_size):
             return
-    if not os.path.exists(file_path):
-        os.mkdir(os.path.dirname(file_path))
+    if not os.path.exists(os.path.dirname(file_path)):
+        os.makedirs(os.path.dirname(file_path))
     f = open(file_path, "wb")
     pbar = tqdm(total=file_size,
                 desc=url.split("/")[-1].split(".")[-1].capitalize(),
@@ -66,3 +76,7 @@ def download(url: str, file_name: str = "") -> None:
         pbar.update(len(buffer))
     pbar.close()
     f.close()
+
+
+def get(coll, key):
+    return coll[key] if key in coll else ""
