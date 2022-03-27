@@ -7,7 +7,6 @@ from models import User
 d = Dialog(dialog="dialog")
 
 
-# TODO: Add description box
 def dialog_search(select_multiple=False):
     i = 0
     choices = []
@@ -16,15 +15,15 @@ def dialog_search(select_multiple=False):
         dialog_say("No search term was entered")
         main_menu()
         return
-    d.gauge_start(f"Searching for {value} on f-droid...", percent=0)
+    d.gauge_start(f"Searching for {value}...", percent=0)
     __packages = Repo().search(value)
     d.gauge_update(percent=100)
     d.gauge_stop()
     for __package in __packages:
         i += 1
-        choices.append((__package, __packages[__package][0][0], False, __packages[__package][1][0]))
+        choices.append((__package["packageName"], __package["name"], False, __package["summary"]))
     if select_multiple:
-        code_, tag = d.checklist(
+        return d.checklist(
             text=f"Search results for '{value}'",
             choices=choices,
             item_help=True,
@@ -35,7 +34,16 @@ def dialog_search(select_multiple=False):
             choices=choices,
             item_help=True
         )
-    return code_, tag
+        if code_ == "ok":
+            for __package in __packages:
+                if __package["packageName"] == tag:
+                    d.msgbox(str(__package["description"]), width=150, height=150)
+                    d.radiolist(
+                        text=f"Search results for '{value}'",
+                        choices=choices,
+                        item_help=True
+                    )
+
 
 
 def dialog_install():
@@ -49,6 +57,7 @@ def dialog_install():
         dialog_say(f"Some error occurred (code={code})")
         main_menu()
     else:
+        input()
         dialog_clear()
         Installer().install_all(__ids)
 
@@ -126,7 +135,7 @@ def main_menu():
     code_, tag = d.radiolist(
         text="fdroid-cli",
         choices=(
-            # ("Search", "Search apps", False),
+            ("Search", "Search apps", False),
             ("Install", "Search and install apps", True),
             ("Update", "Update installed apps", False),
             ("Uninstall", "Uninstall/View installed apps", False),
