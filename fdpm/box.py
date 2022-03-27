@@ -4,6 +4,7 @@ from dialog import Dialog
 from models import Repo
 from models import Installer
 from models import User
+
 d = Dialog(dialog="dialog")
 
 
@@ -43,7 +44,6 @@ def dialog_search(select_multiple=False):
                         choices=choices,
                         item_help=True
                     )
-
 
 
 def dialog_install():
