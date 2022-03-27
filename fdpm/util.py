@@ -2,7 +2,7 @@ import configparser
 import os
 import subprocess
 import zipfile
-
+import platform
 import certifi
 import urllib3
 from tqdm import tqdm
@@ -19,16 +19,21 @@ def command(string: str):
 def download_dir():
     directory = os.environ['HOME']
     if 'termux' in directory:
-        directory += "/storage/shared/Download"
+        directory = os.path.expanduser("~/storage/downloads")
     else:
-        directory += "/Downloads"
-    directory += "/fdroid-cli"
+        directory = os.path.expanduser("~/Downloads")
+    directory.join(["/fdpm"])
     if not os.path.exists(directory):
         os.makedirs(directory)
     return directory
 
 
 def share_dir():
+    if platform.system() == "Windows":
+        directory = os.path.expanduser("~/Documents/fdpm")
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        return directory
     if 'PREFIX' in os.environ:
         if 'termux' in os.environ['PREFIX']:
             return f"{os.environ['PREFIX']}/share/fdpm"
