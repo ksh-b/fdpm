@@ -14,7 +14,7 @@ from models import User
 def main():
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        'acdhi:ln:s:u',
+        'acdhi:ln:rs:u',
         ['add','clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'search=', 'update']
     )
 
@@ -22,6 +22,10 @@ def main():
         if opt in ('-a', '--add'):
             repo = str(sys.argv[2:]).strip("[]").replace("'", "").replace(",", "")
             Repo().subscribe(repo)
+
+        elif opt in ('-r', '--remove'):
+            repo = str(sys.argv[2:]).strip("[]").replace("'", "").replace(",", "")
+            Repo().unsubscribe(repo)
 
         elif opt in ('-d', '--dialog'):
             main_menu()
@@ -72,6 +76,7 @@ def main():
             parser.add_argument('-n', '--uninstall', required=False, help='Uninstall apps from package names',
                                 action="extend",
                                 nargs='+')
+            parser.add_argument('-r', '--remove', required=False, help='Remove repository', action="store")
             parser.add_argument('-s', '--search', required=False, help='Search for apps', action="store")
             parser.add_argument('-u', '--update', required=False, help='Update outdated apps', action="store_false")
             parser.parse_args()
