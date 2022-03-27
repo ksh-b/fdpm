@@ -8,9 +8,7 @@ from multiprocessing.pool import ThreadPool
 
 from tqdm import tqdm
 
-from util import download, share_dir, get, adb_connected, command, download_dir
-
-data = {}
+from util import download, share_dir, get, adb_connected, command, download_dir, cache_put, cache_get, cache_get_all
 
 
 class User:
@@ -39,10 +37,14 @@ class User:
 
     @staticmethod
     def cpu():
-        time.sleep(5)
         if adb_connected():
             try:
-                return command("adb shell getprop ro.product.cpu.abi")
+                cpu = cache_get("USER", "cpu")
+                if cpu is not None:
+                    return cpu
+                else:
+                    cpu = command("adb shell getprop ro.product.cpu.abi")
+                    cache_put("USER", "cpu", cpu)
             except subprocess.CalledProcessError as e:
                 print(f"Failed to cpu type for", e.output)
 
@@ -54,115 +56,120 @@ class User:
 
 class Repo:
 
-    def __init__(self, repo: str = "F-Droid"):
-        self.data = None
-        self.load(repo)
+    def __init__(self):
+        self.dl_dir = f"{share_dir()}/repos"
+        self.data = {}
+        self.load("F-Droid")
 
-    def load(self, repo):
+    def load(self, repo: str):
         """
         Downloads repo index
         :param repo:
         """
-        print("loading repo" + repo)
-        dl_dir = f"{share_dir()}/repos"
-        if not os.path.exists(f"{dl_dir}"):
-            os.makedirs(f"{dl_dir}")
+        if not os.path.exists(self.dl_dir):
+            os.makedirs(self.dl_dir)
         repos_url = "https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json"
         repo_url = "https://f-droid.org/repo"
-        index_file = f'{dl_dir}/{repo}/index-v1.json'
-        repos_file = f'{dl_dir}/repo.json'
+        index_file = f'{self.dl_dir}/{repo}/index-v1.json'
+        repos_file = f'{self.dl_dir}/repo.json'
 
         # skip if recently downloaded
-        if os.path.exists(index_file) and self.age(repo) < 60:
-            self.load_index(index_file)
-            return
+        if os.path.exists(index_file) and self.age(repo) < 60 * 12:
+            return self.quick_load(repo)
 
         # download repos list
-        if not os.path.exists(f"{dl_dir}/repo.json"):
-            print(f"Downloading repo.json")
-            download(repos_url, dl_dir)
+        if not os.path.exists(f"{self.dl_dir}/repo.json"):
+            download(repos_url, self.dl_dir)
 
         # open repos list
         f = open(f"{repos_file}")
-        print(f"{repos_file}")
         repos_data = json.load(f)
         for repo_ in repos_data:
             if repo == repo_["repoName"]:
-                repo = repo_["repoName"]
                 repo_url = repo_["repoUrl"]
                 if repo != "F-Droid":
-                    index_file = f'{dl_dir}/{repo}/index-v1.json'
+                    index_file = f'{self.dl_dir}/{repo}/index-v1.json'
                 else:
-                    index_file = f'{dl_dir}/{repo}/index-v1.jar'
+                    index_file = f'{self.dl_dir}/{repo}/index-v1.jar'
 
         # download index
-        if not os.path.exists(f"{dl_dir}/{repo}/{os.path.basename(index_file)}"):
-            print(f"Downloading index for {repo}...")
-            download(f"{repo_url}/{os.path.basename(index_file)}", f"{dl_dir}/{repo}")
+        if not os.path.exists(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}"):
+            download(f"{repo_url}/{os.path.basename(index_file)}", f"{self.dl_dir}/{repo}")
+            # for f-droid, index is in a jar, unzip it and clean up
             if repo == "F-Droid":
-                with zipfile.ZipFile(f"{dl_dir}/{repo}/{os.path.basename(index_file)}", "r") as zf:
-                    zf.extractall(f"{dl_dir}/{repo}/")
-                os.remove(f"{dl_dir}/{repo}/{os.path.basename(index_file)}")
-                shutil.rmtree(f"{dl_dir}/{repo}/META-INF")
-                index_file = f'{dl_dir}/{repo}/index-v1.json'
+                with zipfile.ZipFile(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}", "r") as zf:
+                    zf.extractall(f"{self.dl_dir}/{repo}/")
+                os.remove(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}")
+                shutil.rmtree(f"{self.dl_dir}/{repo}/META-INF")
 
         # open index
-            self.load_index(index_file)
+        return self.quick_load(repo)
 
-    def address(self):
+    def address(self, repo=None):
+        if repo:
+            self.quick_load(repo)
         return self.data['repo']['address']
 
-    def load_index(self, index_file):
+    def quick_load(self, repo):
+        index_file = f'{self.dl_dir}/{repo}/index-v1.json'
         f = open(index_file)
         self.data = json.load(f)
         f.close()
+        return index_file.split("/")[-2]
 
     def apps(self):
-        i = 0
         apps_list = {}
-        for app in self.data["apps"]:
-            i += 1
-            version = app["suggestedVersionCode"]
-            name = app["packageName"]
-            if "localized" in app:
-                localized = app["localized"]
-                if "en-US" in localized:
-                    en = localized["en-US"]
-                elif "en-GB" in localized:
-                    en = localized["en-GB"]
-                else:
-                    continue
-                description = get(en, "description")
-                summary = get(en, "summary")
-                if summary == "":
-                    summary = get(app, "description")
-                apps_list[name] = {
-                    "name": name,
-                    "suggestedVersionCode": version,
-                    "description": description,
-                    "summary": summary,
-                }
+        for repo in self.subscribed_repos():
+            self.quick_load(repo)
+            for app in self.data["apps"]:
+                version = get(app, "suggestedVersionCode")
+                package_name = get(app, "packageName")
+                name = get(app, "name")
+                if "localized" in app:
+                    localized = app["localized"]
+                    if "en-US" in localized:
+                        en = localized["en-US"]
+                    elif "en-GB" in localized:
+                        en = localized["en-GB"]
+                    else:
+                        continue
+                    if not name:
+                        name = get(en, "name")
+                    description = get(en, "description")
+                    summary = get(en, "summary")
+                    if summary == "":
+                        summary = get(app, "description")
+                    apps_list[package_name] = {
+                        "name": name,
+                        "packageName": package_name,
+                        "suggestedVersionCode": version,
+                        "description": description,
+                        "summary": summary,
+                    }
         return apps_list
 
     def packages(self, app: str):
         packages_list = []
-        for package in self.data["packages"]:
-            if app == package:
-                for apk in data["packages"][app]:
-                    packages_list.append({
-                        "name": apk["apkName"],
-                        "versionName": apk["versionName"],
-                        "versionCode": apk["versionCode"],
-                        "size": apk["size"],
-                        "hash": apk["hash"],
-                        "hashType": apk["hashType"],
-                        "nativecode": apk["nativecode"],
-                    })
+        for repo in self.subscribed_repos():
+            self.quick_load(repo)
+            for package in self.data["packages"]:
+                if app == package:
+                    for apk in self.data["packages"][app]:
+                        packages_list.append({
+                            "apkName": apk["apkName"],
+                            "versionName": apk["versionName"],
+                            "versionCode": apk["versionCode"],
+                            "size": apk["size"],
+                            "hash": apk["hash"],
+                            "hashType": apk["hashType"],
+                            "nativecode": get(apk,"nativecode", "all"),
+                            "repo": repo,
+                        })
         return packages_list
 
     def suggested_package(self, app: str, arch: str):
         for package in self.packages(app):
-            if arch in package["nativecode"]:
+            if arch in package["nativecode"] or package["nativecode"]=="all":
                 if str(self.apps()[app]["suggestedVersionCode"]) == str(package["versionCode"]):
                     return package
 
@@ -176,16 +183,32 @@ class Repo:
         results = []
         apps_list = self.apps()
         for app in apps_list:
-            if fuzz.token_set_ratio(term,str(apps_list[app])) == 100:
+            if fuzz.token_set_ratio(term, str(apps_list[app])) == 100:
                 results.append(apps_list[app])
         return results
 
     def version_code(self, app, version_name):
         for package in self.packages(app):
             if app == package:
-                for apk in data["packages"][app]:
+                for apk in self.data["packages"][app]:
                     if apk["versionName"] == version_name:
                         return apk["versionCode"]
+
+    def subscribe(self, repo: str):
+        repo_ = self.load(repo)
+        cache_put("REPO_SUBS", repo_, "1")
+
+    def load_subscribed(self):
+        subs = cache_get_all("REPO_SUBS")
+        if not subs:
+            self.subscribe("F-Droid")
+        subs = cache_get_all("REPO_SUBS")
+        for repo_sub in subs:
+            self.quick_load(repo_sub)
+
+    @staticmethod
+    def subscribed_repos():
+        return cache_get_all("REPO_SUBS")
 
     @staticmethod
     def age(repo):
@@ -269,17 +292,20 @@ class Installer:
                 print(f"Failed to check package version for '{id_}'", e.output)
         return 0
 
-    def apk_url(self, id_: str, repo_name: str):
+    def apk_url(self, id_: str):
         """
         Get apk url of suggested version for given package name
         :param repo_name:
         :param id_: List of package names
         :return: list[str]:
         """
-        self.repo.load(repo_name)
-        code = self.repo.suggested_package(id_, self.user.cpu())
-        file_name = f"{id_}_{code}.apk"
-        url = f"{self.repo.address()}/{file_name}"
+        # self.repo.load(repo_name)
+        package = self.repo.suggested_package(id_, self.user.cpu())
+        address = self.repo.address(package['repo'])
+        if not "/repo" in address:
+            address.join('/repo')
+        url = f"{address}/{package['apkName']}"
+        print(url)
         return url
 
     def apk_urls(self, ids: list) -> list[str]:
