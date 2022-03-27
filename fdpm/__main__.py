@@ -15,7 +15,7 @@ def main():
     options, remainder = getopt.getopt(
         sys.argv[1:],
         'acdhi:ln:rs:u',
-        ['add','clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'search=', 'update']
+        ['add', 'clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'search=', 'update']
     )
 
     for opt, arg in options:
@@ -37,7 +37,7 @@ def main():
             apps = Repo().search(search_term)
             for app in apps:
                 print("~", app["name"], f'- {app["packageName"]}')
-                print(app["summary"].replace("\n",""), "\n")
+                print(app["summary"].replace("\n", ""), "\n")
 
         elif opt in ('-i', '--install'):
             ids = (sys.argv[2:])
@@ -52,15 +52,14 @@ def main():
 
         elif opt in ('-c', '--clean'):
             files = glob.glob(f"{download_dir()}/*.apk")
-            for f in files:
-                os.remove(f)
+            map(lambda f: os.remove(f), files)
 
         elif opt in ('-l', '--installed'):
             print(
                 str(User().installed_packages('fdroid.cli'))
-                    .replace(", ", "\n")
-                    .replace("'", "")
-                    .strip("[]")
+                .replace(", ", "\n")
+                .replace("'", "")
+                .strip("[]")
             )
 
         else:

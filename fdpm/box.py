@@ -9,8 +9,6 @@ d = Dialog(dialog="dialog")
 
 
 def dialog_search(select_multiple=False):
-    i = 0
-    choices = []
     code_, value = d.inputbox(text="Search for app")
     if not value:
         dialog_say("No search term was entered")
@@ -20,30 +18,36 @@ def dialog_search(select_multiple=False):
     __packages = Repo().search(value)
     d.gauge_update(percent=100)
     d.gauge_stop()
-    for __package in __packages:
-        i += 1
-        choices.append((__package["packageName"], __package["name"], False, __package["summary"]))
+    choices = [
+        (
+            __package["packageName"],
+            __package["name"],
+            False,
+            __package["summary"],
+        )
+        for __package in __packages
+    ]
+
     if select_multiple:
         return d.checklist(
             text=f"Search results for '{value}'",
             choices=choices,
             item_help=True,
         )
-    else:
-        code_, tag = d.radiolist(
-            text=f"Search results for '{value}'",
-            choices=choices,
-            item_help=True
-        )
-        if code_ == "ok":
-            for __package in __packages:
-                if __package["packageName"] == tag:
-                    d.msgbox(str(__package["description"]), width=150, height=150)
-                    d.radiolist(
-                        text=f"Search results for '{value}'",
-                        choices=choices,
-                        item_help=True
-                    )
+    code_, tag = d.radiolist(
+        text=f"Search results for '{value}'",
+        choices=choices,
+        item_help=True
+    )
+    if code_ == "ok":
+        for __package in __packages:
+            if __package["packageName"] == tag:
+                d.msgbox(str(__package["description"]), width=150, height=150)
+                d.radiolist(
+                    text=f"Search results for '{value}'",
+                    choices=choices,
+                    item_help=True
+                )
 
 
 def dialog_install():
@@ -63,17 +67,12 @@ def dialog_install():
 
 
 def dialog_uninstall():
-    i = 0
-    __ids = []
     __packages = User().installed_packages('fdroid')
     if not __packages:
         dialog_say("No packages to uninstall")
         main_menu()
         return
-    for __package in __packages:
-        i += 1
-        __ids.append(
-            (__package, "", False))
+    __ids = [(__package, "", False) for __package in __packages]
     if not __ids:
         dialog_say("No packages to uninstall")
         main_menu()
@@ -95,18 +94,16 @@ def dialog_uninstall():
 
 
 def dialog_update():
-    d.gauge_start(f"Checking for outdated packages...", percent=0)
+    d.gauge_start("Checking for outdated packages...", percent=0)
     __packages = Installer().outdated_packages()
     d.gauge_update(100)
     d.gauge_stop()
-    __choices = []
     if not __packages:
         dialog_say("All packages up to date 😊")
         main_menu()
         return
 
-    for __package in __packages:
-        __choices.append((__package, "", True,))
+    __choices = [(__package, "", True,) for __package in __packages]
     code_, tags = d.checklist(
         text="Select apps to update",
         choices=__choices,
