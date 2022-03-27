@@ -1,3 +1,4 @@
+import configparser
 import os
 import subprocess
 import zipfile
@@ -45,24 +46,36 @@ def download(url: str, file_path: str = "") -> None:
     :param file_path:
     :param url: Url for apk
     """
+    file_size_dl = 0
+    block_sz = 8192
     file_name = f"{url.split('/')[-1]}"
+    if not file_path:
+        file_path = f"{download_dir()}/{file_name}"
+    else:
+        file_path = f"{file_path}/{file_name}"
     http = urllib3.PoolManager(
         cert_reqs='CERT_REQUIRED',
         ca_certs=certifi.where()
     )
     r = http.request('GET', url, preload_content=False)
-    file_size = int(r.headers["Content-Length"])
-    file_size_dl = 0
-    block_sz = 8192
-    if not file_path:
-        file_path = f"{download_dir()}/{file_name}"
+
+    if "Content-Length" in r.headers:
+        file_size = int(r.headers["Content-Length"])
     else:
-        file_path = f"{file_path}/{file_name}"
+        f = open(file_path, "wb")
+        while True:
+            buffer = r.read(block_sz)
+            if not buffer:
+                break
+            f.write(buffer)
+        return
+
     if file_name.endswith(".apk"):
         if os.path.exists(file_path) and verify_apk(file_path, file_size):
             return
     if not os.path.exists(os.path.dirname(file_path)):
         os.makedirs(os.path.dirname(file_path))
+
     f = open(file_path, "wb")
     pbar = tqdm(total=file_size,
                 desc=url.split("/")[-1].split(".")[-1].capitalize(),
@@ -78,5 +91,36 @@ def download(url: str, file_path: str = "") -> None:
     f.close()
 
 
-def get(coll, key):
-    return coll[key] if key in coll else ""
+def get(coll, key, fallback=""):
+    return coll[key] if key in coll else fallback
+
+
+def cache_put(section, key, value):
+    config_file = configparser.ConfigParser()
+    config_file.optionxform = str
+    if not config_file.has_section(section):
+        config_file.add_section(section)
+    config_file.read(f"{share_dir()}/cache")
+    config_file.set(section, key, value)
+    with open(f"{share_dir()}/cache", 'w') as configfileObj:
+        config_file.write(configfileObj)
+        configfileObj.flush()
+        configfileObj.close()
+
+
+def cache_get(section, key):
+    config_file = configparser.ConfigParser()
+    config_file.optionxform = str
+    if os.path.exists(f"{share_dir()}/cache"):
+        config_file.read(f"{share_dir()}/cache")
+        return config_file.get(section, key, fallback=None)
+    return None
+
+
+def cache_get_all(section):
+    config_file = configparser.ConfigParser()
+    config_file.optionxform = str
+    if os.path.exists(f"{share_dir()}/cache"):
+        config_file.read(f"{share_dir()}/cache")
+        return config_file.options(section)
+    return None
