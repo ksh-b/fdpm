@@ -17,7 +17,7 @@ class User:
     def installed_packages(installer_keyword, user=0) -> list:
         """
         :param installer_keyword: Package installer, can be partial package name
-        :param user: User id
+        :param user: User id, 0 by default
         :return: List of package names for installed apps
         """
         packages = []
@@ -36,7 +36,10 @@ class User:
         return packages
 
     @staticmethod
-    def cpu():
+    def cpu() -> str:
+        """
+        :return: returns cpu abi
+        """
         if adb_connected():
             try:
                 cpu = cache_get("USER", "cpu")
@@ -48,9 +51,11 @@ class User:
             except subprocess.CalledProcessError as e:
                 print(f"Failed to cpu type for", e.output)
 
-    # return if user is using android
     @staticmethod
     def android() -> bool:
+        """
+        :return: returns True if user is using android
+        """
         return "android" in str(os.environ).lower()
 
 
@@ -59,12 +64,15 @@ class Repo:
     def __init__(self):
         self.dl_dir = f"{share_dir()}/repos"
         self.data = {}
-        self.load("F-Droid")
+        self.repo = "F-Droid"
+        self.load(self.repo)
 
     def load(self, repo: str):
         """
-        Downloads repo index
-        :param repo:
+        Downloads repo index and reads it
+        :param repo: Full repo name as specified in repo.json
+
+        https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json
         """
         if not os.path.exists(self.dl_dir):
             os.makedirs(self.dl_dir)
@@ -106,18 +114,37 @@ class Repo:
         return self.quick_load(repo)
 
     def address(self, repo=None):
+        """
+        Returns base url for specified repo. If no repo is specified returns base url for
+        currently loaded repo.
+        :param repo:
+        :return: repo base url
+        """
         if repo:
             self.quick_load(repo)
         return self.data['repo']['address']
 
     def quick_load(self, repo):
+        """
+        Reads already downloaded repo index
+        :param repo:
+        :return: loaded repo name
+        """
+        if repo == self.repo:
+            return self.repo
         index_file = f'{self.dl_dir}/{repo}/index-v1.json'
         f = open(index_file)
         self.data = json.load(f)
         f.close()
-        return index_file.split("/")[-2]
+        self.repo = repo
+        return self.repo
 
-    def apps(self):
+    def apps(self) -> dict:
+        """
+        Collects all apps from subscribed repos
+        :return: dict with package name as key and
+        values: name, packageName, suggestedVersionCode, description, summary
+        """
         apps_list = {}
         for repo in self.subscribed_repos():
             self.quick_load(repo)
@@ -148,7 +175,12 @@ class Repo:
                     }
         return apps_list
 
-    def packages(self, app: str):
+    def packages(self, app: str) -> list:
+        """
+        returns packages for specified app
+        :param app: app package name
+        :return: list of packages
+        """
         packages_list = []
         for repo in self.subscribed_repos():
             self.quick_load(repo)
@@ -156,24 +188,36 @@ class Repo:
                 if app == package:
                     for apk in self.data["packages"][app]:
                         packages_list.append({
-                            "apkName": apk["apkName"],
-                            "versionName": apk["versionName"],
-                            "versionCode": apk["versionCode"],
-                            "size": apk["size"],
-                            "hash": apk["hash"],
-                            "hashType": apk["hashType"],
-                            "nativecode": get(apk,"nativecode", "all"),
+                            "apkName": get(apk, "apkName"),
+                            "versionName": get(apk, "versionName"),
+                            "versionCode": get(apk, "versionCode"),
+                            "size": get(apk, "size"),
+                            "hash": get(apk, "hash"),
+                            "hashType": get(apk, "hashType"),
+                            "nativecode": get(apk, "nativecode", "all"),
                             "repo": repo,
                         })
         return packages_list
 
     def suggested_package(self, app: str, arch: str):
+        """
+        Searches packages for suggested version and cpu architecture
+        :param app: app package name
+        :param arch: cpu architecture
+        :return: suggested package
+        """
         for package in self.packages(app):
-            if arch in package["nativecode"] or package["nativecode"]=="all":
+            if arch in package["nativecode"] or package["nativecode"] == "all":
                 if str(self.apps()[app]["suggestedVersionCode"]) == str(package["versionCode"]):
                     return package
 
     def latest_package(self, app: str, arch: str):
+        """
+
+        :param app:
+        :param arch:
+        :return:
+        """
         for package in self.packages(app):
             if arch in package["nativecode"]:
                 return package
@@ -208,7 +252,14 @@ class Repo:
 
     @staticmethod
     def subscribed_repos():
-        return cache_get_all("REPO_SUBS")
+        return list(filter(
+            lambda sub: cache_get("REPO_SUBS", sub) == "1",
+            cache_get_all("REPO_SUBS")
+        ))
+
+    @staticmethod
+    def unsubscribe(repo):
+        cache_put("REPO_SUBS", repo, "0")
 
     @staticmethod
     def age(repo):
@@ -295,14 +346,13 @@ class Installer:
     def apk_url(self, id_: str):
         """
         Get apk url of suggested version for given package name
-        :param repo_name:
         :param id_: List of package names
         :return: list[str]:
         """
         # self.repo.load(repo_name)
         package = self.repo.suggested_package(id_, self.user.cpu())
         address = self.repo.address(package['repo'])
-        if not "/repo" in address:
+        if "/repo" not in address:
             address.join('/repo')
         url = f"{address}/{package['apkName']}"
         print(url)
