@@ -25,7 +25,7 @@ Install apps from f-droid through command line
 
 ## Installation
 ```
-pip install fdpm
+pip install -i https://test.pypi.org/simple/ fdpm
 ```
 
 ## Usage
@@ -44,6 +44,16 @@ fdpm -u
 
 # Use dialog interface to avoid using package names (Not supported on windows)
 fdpm -d
+
+# Subscribe to repo
+fdpm -a Bitwarden
+
+# Unsubscribe from repo
+fdpm -r Bitwarden
+
+# Repo names:
+# https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json
+
 ````
 
 Screenshots:
