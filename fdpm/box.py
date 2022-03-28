@@ -1,9 +1,9 @@
 import os
 
 from dialog import Dialog
-from models import Repo
-from models import Installer
-from models import User
+from .models import Repo
+from .models import Installer
+from .models import User
 
 d = Dialog(dialog="dialog")
 

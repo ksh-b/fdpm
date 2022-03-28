@@ -4,11 +4,11 @@ import glob
 import os
 import sys
 
-from box import main_menu, dialog_clear
-from util import download_dir
-from models import Repo
-from models import Installer
-from models import User
+from .box import main_menu, dialog_clear
+from .util import download_dir
+from .models import Repo
+from .models import Installer
+from .models import User
 
 
 def main():

@@ -8,7 +8,7 @@ from multiprocessing.pool import ThreadPool
 
 from tqdm import tqdm
 
-from util import download, share_dir, get, adb_connected, command, download_dir, cache_put, cache_get, cache_get_all
+from .util import download, share_dir, get, adb_connected, command, download_dir, cache_put, cache_get, cache_get_all
 
 
 class User:
@@ -177,16 +177,17 @@ class Repo:
             self.quick_load(repo)
             for package in self.data["packages"]:
                 if app == package:
-                    packages_list.extend({
-                                             "apkName": get(apk, "apkName"),
-                                             "versionName": get(apk, "versionName"),
-                                             "versionCode": get(apk, "versionCode"),
-                                             "size": get(apk, "size"),
-                                             "hash": get(apk, "hash"),
-                                             "hashType": get(apk, "hashType"),
-                                             "nativecode": get(apk, "nativecode", "all"),
-                                             "repo": repo,
-                                         } for apk in self.data["packages"][app])
+                    packages_list.extend(
+                        {
+                            "apkName": get(apk, "apkName"),
+                            "versionName": get(apk, "versionName"),
+                            "versionCode": get(apk, "versionCode"),
+                            "size": get(apk, "size"),
+                            "hash": get(apk, "hash"),
+                            "hashType": get(apk, "hashType"),
+                            "nativecode": get(apk, "nativecode", "all"),
+                            "repo": repo,
+                        } for apk in self.data["packages"][app])
         return packages_list
 
     def suggested_package(self, app: str, arch: str):
