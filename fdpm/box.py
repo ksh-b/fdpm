@@ -1,9 +1,9 @@
 import os
 
 from dialog import Dialog
-from .models import Repo
-from .models import Installer
-from .models import User
+from fdpm.models import Repo
+from fdpm.models import Installer
+from fdpm.models import User
 
 d = Dialog(dialog="dialog")
 
@@ -120,6 +120,22 @@ def dialog_update():
         Installer().install_all(tags)
 
 
+def dialog_subscriptions():
+    all_repos = Repo().available()
+    sub_repos = Repo().subscribed_repos()
+    __choices = [(repo, "", repo in sub_repos,) for repo in all_repos]
+    code_, tags = d.checklist(
+        text="Select apps to update",
+        choices=__choices,
+    )
+    dialog_clear()
+    for repo in all_repos:
+        if repo in tags and repo not in sub_repos:
+            Repo().subscribe(repo)
+        elif repo not in tags and repo in sub_repos:
+            Repo().unsubscribe(repo)
+
+
 def dialog_say(msg):
     d.msgbox(msg)
 
@@ -134,6 +150,7 @@ def main_menu():
         choices=(
             ("Search", "Search apps", False),
             ("Install", "Search and install apps", True),
+            ("Subscribe", "Subscribe to repos", True),
             ("Update", "Update installed apps", False),
             ("Uninstall", "Uninstall/View installed apps", False),
             ("Exit", "Close dialog", False),
@@ -143,6 +160,8 @@ def main_menu():
         dialog_search()
     if tag == "Install":
         dialog_install()
+    if tag == "Subscribe":
+        dialog_subscriptions()
     if tag == "Uninstall":
         dialog_uninstall()
     if tag == "Update":
