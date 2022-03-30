@@ -6,9 +6,11 @@ import time
 import zipfile
 from multiprocessing.pool import ThreadPool
 
+import requests
 from tqdm import tqdm
 
-from .util import download, share_dir, get, adb_connected, command, download_dir, cache_put, cache_get, cache_get_all
+from fdpm.util import download, share_dir, get, adb_connected, \
+    command, download_dir, cache_put, cache_get, cache_get_all
 
 
 class User:
@@ -43,12 +45,29 @@ class User:
         if adb_connected():
             try:
                 cpu = cache_get("USER", "cpu")
-                if cpu is not None:
+                if cpu:
                     return cpu
                 cpu = command("adb shell getprop ro.product.cpu.abi")
                 cache_put("USER", "cpu", cpu)
+                return cpu
             except subprocess.CalledProcessError as e:
                 print("Failed to cpu type for", e.output)
+
+    @staticmethod
+    def sdk():
+        """
+        :return: returns sdk version
+        """
+        if adb_connected():
+            try:
+                sdk = cache_get("USER", "sdk")
+                if sdk:
+                    return sdk
+                sdk = command("adb shell getprop ro.build.version.sdk")
+                cache_put("USER", "sdk", sdk)
+                return sdk
+            except subprocess.CalledProcessError as e:
+                print("Failed to sdk version for", e.output)
 
     @staticmethod
     def android() -> bool:
@@ -64,6 +83,7 @@ class Repo:
         self.dl_dir = f"{share_dir()}/repos"
         self.data = {}
         self.name = "F-Droid"
+        self.subscribe(self.name)
         self.load(self.name)
 
     def load(self, repo: str):
@@ -73,6 +93,7 @@ class Repo:
 
         https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json
         """
+
         if not os.path.exists(self.dl_dir):
             os.makedirs(self.dl_dir)
         repo_url = "https://f-droid.org/repo"
@@ -88,22 +109,23 @@ class Repo:
             repos_url = "https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json"
             download(repos_url, self.dl_dir)
 
-        # open repos list
-        f = open(f"{repos_file}")
-        repos_data = json.load(f)
+        # load repo file
+        with open(repos_file) as f:
+            repos_data = json.load(f)
+        ext = "json"
         for repo_ in repos_data:
             if repo == repo_["repoName"]:
                 repo_url = repo_["repoUrl"]
-                if repo != "F-Droid":
-                    index_file = f'{self.dl_dir}/{repo}/index-v1.json'
-                else:
-                    index_file = f'{self.dl_dir}/{repo}/index-v1.jar'
+                response = requests.get(f"{repo_url}/index-v1.{ext}")
+                if response.status_code != 200:
+                    ext = "jar"
+                index_file = f'{self.dl_dir}/{repo}/index-v1.{ext}'
 
         # download index
         if not os.path.exists(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}"):
             download(f"{repo_url}/{os.path.basename(index_file)}", f"{self.dl_dir}/{repo}")
             # for f-droid, index is in a jar, unzip it and clean up
-            if repo == "F-Droid":
+            if ext == "jar":
                 with zipfile.ZipFile(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}", "r") as zf:
                     zf.extractall(f"{self.dl_dir}/{repo}/")
                 os.remove(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}")
@@ -129,8 +151,6 @@ class Repo:
         :param repo:
         :return: loaded repo name
         """
-        if repo == self.name:
-            return self.name
         index_file = f'{self.dl_dir}/{repo}/index-v1.json'
         with open(index_file) as f:
             self.data = json.load(f)
@@ -147,6 +167,8 @@ class Repo:
         for repo in self.subscribed_repos():
             self.quick_load(repo)
             for app in self.data["apps"]:
+                description = ""
+                summary = ""
                 version = get(app, "suggestedVersionCode")
                 package_name = get(app, "packageName")
                 name = get(app, "name")
@@ -157,13 +179,13 @@ class Repo:
                         name = get(en, "name")
                     description = get(en, "description")
                     summary = get(en, "summary", get(app, "description"))
-                    apps_list[package_name] = {
-                        "name": name,
-                        "packageName": package_name,
-                        "suggestedVersionCode": version,
-                        "description": description,
-                        "summary": summary,
-                    }
+                apps_list[package_name] = {
+                    "name": name,
+                    "packageName": package_name,
+                    "suggestedVersionCode": version,
+                    "description": description,
+                    "summary": summary,
+                }
         return apps_list
 
     def packages(self, app: str) -> list:
@@ -186,22 +208,31 @@ class Repo:
                             "hash": get(apk, "hash"),
                             "hashType": get(apk, "hashType"),
                             "nativecode": get(apk, "nativecode", "all"),
-                            "repo": repo,
+                            "minSdkVersion": get(apk, "minSdkVersion", "all"),
+                            "targetSdkVersion": get(apk, "targetSdkVersion", "all"),
+                            "repo": self.name,
                         } for apk in self.data["packages"][app])
         return packages_list
 
-    def suggested_package(self, app: str, arch: str):
+    def suggested_package(self, app: str, user: User):
         """
         Searches packages for suggested version and cpu architecture
+        :param user: user object
         :param app: app package name
-        :param arch: cpu architecture
         :return: suggested package
         """
-        for package in self.packages(app):
-            cpu_ok = arch in package["nativecode"] or package["nativecode"] == "all"
-            suggested = str(self.apps()[app]["suggestedVersionCode"]) == str(package["versionCode"])
-            if cpu_ok and suggested:
-                return package
+        for repo in self.subscribed_repos():
+            self.quick_load(repo)
+            if app in self.apps():
+                for package in self.packages(app):
+                    cpu_ok = user.cpu() in package["nativecode"] or package["nativecode"] == "all"
+                    sdk_ok = package["minSdkVersion"] <= int(user.sdk())
+                    # suggested = str(self.apps()[app]["suggestedVersionCode"]) == str(package["versionCode"])
+                    # ignore suggested if cpu and sdk are ok
+                    # as some repos give different suggested version number depending on sdk
+                    # which would result on no match. example: bromite repo
+                    if cpu_ok and sdk_ok:
+                        return package
 
     def latest_package(self, app: str, arch: str):
         """
@@ -278,6 +309,16 @@ class Repo:
         time_modified = int(os.path.getmtime(f'{dl_dir}/{repo}/index-v1.json'))
         return int((time_now - time_modified) / 60)
 
+    @staticmethod
+    def available():
+        repos_file = f'{share_dir()}/repos/repo.json'
+        with open(repos_file) as f:
+            repos_data = json.load(f)
+        return list(map(
+            lambda repo_:repo_['repoName'],
+            repos_data
+        ))
+
 
 class Installer:
 
@@ -303,8 +344,10 @@ class Installer:
         :param id_: Package name
         :return: Newer 'suggested' version if available, 0 otherwise
         """
-        version = self.repo.suggested_package(id_, self.user.cpu())["versionCode"]
-        return version if self.installed_package_version(id_) < version else 0
+        for r in self.repo.subscribed_repos():
+            self.repo.quick_load(r)
+            version = self.repo.suggested_package(id_, self.user)["versionCode"]
+            return version if self.installed_package_version(id_) < version else 0
 
     def latest_outdated(self, id_: str):
         """
@@ -312,10 +355,12 @@ class Installer:
         :param id_: Package name
         :return: Newer 'latest' version if available, 0 otherwise
         """
-        version = self.repo.latest_package(id_, self.user.cpu())
-        if self.installed_package_version(id_) < self.repo.latest_package(id_, self.user.cpu())["versionCode"]:
-            return version
-        return 0
+        for r in self.repo.subscribed_repos():
+            self.repo.quick_load(r)
+            version = self.repo.latest_package(id_, self.user.cpu())
+            if self.installed_package_version(id_) < self.repo.latest_package(id_, self.user.cpu())["versionCode"]:
+                return version
+            return 0
 
     def outdated_packages(self, suggested: bool = True) -> list:
         """
@@ -354,14 +399,11 @@ class Installer:
         :param id_: List of package names
         :return: list[str]:
         """
-        # self.repo.load(repo_name)
-        package = self.repo.suggested_package(id_, self.user.cpu())
+        package = self.repo.suggested_package(id_, self.user)
         address = self.repo.address(package['repo'])
         if "/repo" not in address:
-            address.join('/repo')
-        url = f"{address}/{package['apkName']}"
-        print(url)
-        return url
+            address = "".join([address, 'repo'])
+        return f"{address}/{package['apkName']}"
 
     def apk_urls(self, ids: list) -> list[str]:
         """

@@ -32,7 +32,7 @@ def download_dir() -> str:
         directory = os.path.expanduser("~/storage/downloads")
     else:
         directory = os.path.expanduser("~/Downloads")
-    directory.join(["/fdpm"])
+    directory = ''.join([directory, "/fdpm"])
     if not os.path.exists(directory):
         os.makedirs(directory)
     return directory
