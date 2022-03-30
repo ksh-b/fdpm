@@ -10,12 +10,13 @@ from fdpm.models import Repo
 from fdpm.models import Installer
 from fdpm.models import User
 
+version = 0.69
 
 def main():
     options, remainder = getopt.getopt(
         sys.argv[1:],
         'acdhi:ln:rs:u',
-        ['add', 'clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'search=', 'update']
+        ['add', 'clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'version', 'search=', 'update']
     )
 
     for opt, arg in options:
@@ -34,6 +35,9 @@ def main():
         elif opt in ('-d', '--dialog'):
             main_menu()
             dialog_clear()
+
+        elif opt in ('-v', '--version'):
+            print(version)
 
         elif opt in ('-s', '--search'):
             search_term = str(sys.argv[2:]).strip("[]").replace("'", "").replace(",", "")
