@@ -4,11 +4,11 @@ import glob
 import os
 import sys
 
-from .box import main_menu, dialog_clear
-from .util import download_dir
-from .models import Repo
-from .models import Installer
-from .models import User
+from fdpm.box import main_menu, dialog_clear
+from fdpm.util import download_dir
+from fdpm.models import Repo
+from fdpm.models import Installer
+from fdpm.models import User
 
 
 def main():
@@ -20,6 +20,10 @@ def main():
 
     for opt, arg in options:
         if opt in ('-a', '--add'):
+            if len(sys.argv) == 2:
+                for r in Repo().available():
+                    print(r)
+                sys.exit(0)
             repo = str(sys.argv[2:]).strip("[]").replace("'", "").replace(",", "")
             Repo().subscribe(repo)
 
