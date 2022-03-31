@@ -123,6 +123,7 @@ class Repo:
 
         # download index
         if not os.path.exists(f"{self.dl_dir}/{repo}/{os.path.basename(index_file)}"):
+            os.makedirs(f"{self.dl_dir}/{repo}")
             download(f"{repo_url}/{os.path.basename(index_file)}", f"{self.dl_dir}/{repo}")
             # for f-droid, index is in a jar, unzip it and clean up
             if ext == "jar":
