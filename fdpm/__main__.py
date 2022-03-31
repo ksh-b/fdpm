@@ -10,12 +10,12 @@ from fdpm.models import Repo
 from fdpm.models import Installer
 from fdpm.models import User
 
-version = 0.69
+version = 0.71
 
 def main():
     options, remainder = getopt.getopt(
         sys.argv[1:],
-        'acdhi:ln:rs:u',
+        'acdhi:ln:rs:vu',
         ['add', 'clean', 'dialog', 'help', 'install=', 'list', 'uninstall=', 'version', 'search=', 'update']
     )
 

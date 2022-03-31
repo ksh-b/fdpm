@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fdpm"
-version = "0.0.7"
+version = "0.0.71"
 description = "Command line tool to install packages from f-droid.org"
 authors = ["Kshitij Bhuwad <ksyko@pm.me>"]
 license = "AGPL-3.0-only"
