@@ -346,8 +346,9 @@ class Installer:
         """
         for r in self.repo.subscribed_repos():
             self.repo.quick_load(r)
-            version = self.repo.suggested_package(id_, self.user)["versionCode"]
-            return version if self.installed_package_version(id_) < version else 0
+            if self.repo.suggested_package(id_, self.user) is not None:
+                version = self.repo.suggested_package(id_, self.user)["versionCode"]
+                return version if self.installed_package_version(id_) < version else 0
 
     def latest_outdated(self, id_: str):
         """

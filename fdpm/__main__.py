@@ -56,7 +56,10 @@ def main():
             Installer().uninstall_all(ids)
 
         elif opt in ('-u', '--update'):
-            Installer().install_all(Installer().outdated_packages())
+            if packages := Installer().outdated_packages():
+                Installer().install_all(packages)
+            else:
+                print("Already up to date")
 
         elif opt in ('-c', '--clean'):
             files = glob.glob(f"{download_dir()}/*.apk")
