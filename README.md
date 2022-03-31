@@ -25,7 +25,7 @@ Install apps from f-droid through command line
 
 ## Installation
 ```
-pip install -i https://test.pypi.org/simple/ fdpm
+pip install fdpm
 ```
 
 ## Usage
