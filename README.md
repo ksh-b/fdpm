@@ -45,14 +45,14 @@ fdpm -u
 # Use dialog interface to avoid using package names (Not supported on windows)
 fdpm -d
 
+# Repo names:
+fdpm -a
+
 # Subscribe to repo
 fdpm -a Bitwarden
 
 # Unsubscribe from repo
 fdpm -r Bitwarden
-
-# Repo names:
-# https://gitlab.com/AuroraOSS/auroradroid/-/raw/master/app/src/main/assets/repo.json
 
 ````
 
