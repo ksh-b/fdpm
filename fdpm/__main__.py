@@ -10,7 +10,7 @@ from fdpm.models import Repo
 from fdpm.models import Installer
 from fdpm.models import User
 
-version = 0.72
+version = "0.0.74"
 
 def main():
     options, remainder = getopt.getopt(
@@ -63,7 +63,8 @@ def main():
 
         elif opt in ('-c', '--clean'):
             files = glob.glob(f"{download_dir()}/*.apk")
-            map(lambda f: os.remove(f), files)
+            for file in files:
+                os.remove(file)
 
         elif opt in ('-l', '--installed'):
             print(
