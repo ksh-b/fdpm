@@ -1,10 +1,10 @@
 import configparser
 import os
+import platform
 import subprocess
 import zipfile
-import platform
-import certifi
-import urllib3
+
+import requests
 from tqdm import tqdm
 
 
@@ -68,7 +68,6 @@ def download(url: str, file_path: str = "") -> None:
     :param file_path:
     :param url: Url for apk
     """
-    block_sz = 8192
     file_name = f"{url.split('/')[-1]}"
     file_path = (
         f"{file_path}/{file_name}"
@@ -76,42 +75,36 @@ def download(url: str, file_path: str = "") -> None:
         else f"{download_dir()}/{file_name}"
     )
 
-    http = urllib3.PoolManager(
-        cert_reqs='CERT_REQUIRED',
-        ca_certs=certifi.where()
-    )
-    r = http.request('GET', url, preload_content=False)
+    response = requests.get(url, stream=True)
+    file_size = response.headers.get('content-length')
 
-    if "Content-Length" in r.headers:
-        file_size = int(r.headers["Content-Length"])
-    else:
-        f = open(file_path, "wb")
-        while True:
-            buffer = r.read(block_sz)
-            if not buffer:
-                break
-            f.write(buffer)
+    # handle if no content length present
+    if file_size is None:
+        with open(file_path, "wb") as f:
+            f.write(response.content)
         return
 
+    # avoid re-download if file is already downloaded
     if (
-            file_name.endswith(".apk")
-            and os.path.exists(file_path)
-            and verify_apk(file_path, file_size)
+        file_name.endswith(".apk")
+        and os.path.exists(file_path)
+        and verify_apk(file_path, int(file_size))
     ):
         return
+
+    # make dirs
     if not os.path.exists(os.path.dirname(file_path)):
         os.makedirs(os.path.dirname(file_path))
 
+    # download with progress bar
     with open(file_path, "wb") as f:
+        file_size = int(file_size)
         pbar = tqdm(total=file_size,
-                    desc=url.split("/")[-1].split(".")[-1].capitalize(),
+                    desc=url.split("/")[-1],
                     leave=False, colour='green')
-        while True:
-            buffer = r.read(block_sz)
-            if not buffer:
-                break
-            f.write(buffer)
-            pbar.update(len(buffer))
+        for data in response.iter_content(chunk_size=4096):
+            f.write(data)
+            pbar.update(len(data))
         pbar.close()
 
 
