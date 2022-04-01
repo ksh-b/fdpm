@@ -10,7 +10,7 @@ from fdpm.models import Repo
 from fdpm.models import Installer
 from fdpm.models import User
 
-version = 0.71
+version = 0.72
 
 def main():
     options, remainder = getopt.getopt(
