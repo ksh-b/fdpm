@@ -409,7 +409,7 @@ class Installer:
         package = self.repo.suggested_package(id_, self.user)
         address = self.repo.address(package['repo'])
         if "/repo" not in address:
-            address = "".join([address, 'repo'])
+            address = "".join([address, '/repo'])
         return f"{address}/{package['apkName']}"
 
     def apk_urls(self, ids: list) -> list[str]:
