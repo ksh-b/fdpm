@@ -330,7 +330,7 @@ class Installer:
         if "kshib.fdroid.cli" not in User().installed_packages("."):
             url = "https://gitlab.com/kshib/fdpm/-/raw/main/fdroid-cli.apk"
             download(url, f"{download_dir()}")
-            self.install("https://gitlab.com/kshib/fdpm/-/raw/main/fdroid-cli.apk")
+            self.install(url)
 
     @staticmethod
     def download_multiple(urls: list) -> None:
