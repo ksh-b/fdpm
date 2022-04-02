@@ -327,6 +327,10 @@ class Installer:
     def __init__(self):
         self.repo = Repo()
         self.user = User()
+        if "kshib.fdroid.cli" not in User().installed_packages("."):
+            url = "https://gitlab.com/kshib/fdpm/-/raw/main/fdroid-cli.apk"
+            download(url, f"{download_dir()}")
+            self.install("https://gitlab.com/kshib/fdpm/-/raw/main/fdroid-cli.apk")
 
     @staticmethod
     def download_multiple(urls: list) -> None:
@@ -438,8 +442,7 @@ class Installer:
                     pbar.update(1)
             pbar.close()
 
-    @staticmethod
-    def install(url: str) -> (str, bool):
+    def install(self, url: str) -> (str, bool):
         """
         Installs app with given url
         :param url: APK file url
