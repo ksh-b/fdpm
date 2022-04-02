@@ -228,7 +228,7 @@ class Repo:
             if app in self.apps():
                 for package in self.packages(app):
                     cpu_ok = user.cpu() in package["nativecode"] or package["nativecode"] == "all"
-                    sdk_ok = package["minSdkVersion"] <= int(user.sdk())
+                    sdk_ok = int(package["minSdkVersion"]) <= int(user.sdk())
                     # suggested = str(self.apps()[app]["suggestedVersionCode"]) == str(package["versionCode"])
                     # ignore suggested if cpu and sdk are ok
                     # as some repos give different suggested version number depending on sdk
